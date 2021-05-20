@@ -5,6 +5,7 @@ import pytz
 import datetime
 import logging
 import glob
+import uvicorn
 #import RPi.GPIO as GPIO
 import _thread as thread
 
@@ -15,11 +16,26 @@ from fastapi import FastAPI, Header, Request, Response
 from pydantic import BaseModel
 
 
+app = FastAPI(
+    title="CoopKeeper API",
+    description="RestAPI for CoopKeeper",
+    version="0.1a",
+)
+
+APP_NAME = "CoopKeeper"
+WEBHOOK_SECRET = "My precious"
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+
 class Coop:
     MAX_MANUAL_MODE_TIME = 60 * 60
     MAX_MOTOR_ON = 45
     TIMEZONE_CITY = 'Seattle'
-    AFTER_SUNSET_DELAY = -10
+    AFTER_SUNSET_DELAY = 0
     AFTER_SUNRISE_DELAY = -15
     SECOND_CHANCE_DELAY = 60 * 10
     IDLE = UNKNOWN = NOT_TRIGGERED = AUTO = 0
@@ -54,7 +70,10 @@ class CoopKeeper:
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
-        CoopTime().check_time()
+        coop_time = CoopTime()
+
+        uvicorn.run("server:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
+
 
     def open_door(self):
         pass
@@ -78,14 +97,6 @@ class CoopKeeper:
         pass
 
 
-class CoopAPI:
-    pass
-
-
-class CoopMessenger:
-    print("Init CoopMessenger")
-
-
 class CoopTime:
 
     a = Astral()
@@ -95,7 +106,9 @@ class CoopTime:
         self.current_time = None
         self.open_time = None
         self.close_time = None
-        self.check_time()
+        t = Thread(target = self.check_time)
+        t.setDaemon(True)
+        t.start()
 
     def check_time(self):
         while True:
@@ -104,14 +117,14 @@ class CoopTime:
             self.open_time = sun["sunrise"] + datetime.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
             self.close_time = sun["sunset"] + datetime.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
             CoopLogger.log_info('Updating time for location: {}'.format(CoopTime.city))
-            time.sleep(300)
+            time.sleep(3600)
 
 
 class CoopLogger:
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(APP_NAME)
     logger.setLevel(logging.DEBUG)
 
-    fh = logging.FileHandler('/tmp/log.log')
+    fh = logging.FileHandler('/tmp/{}.log'.format(APP_NAME))
     fh.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
@@ -130,6 +143,10 @@ class CoopLogger:
     @classmethod
     def log_error(cls, message):
         cls.logger.error(message)
+
+    @classmethod
+    def log_debug(cls, message):
+        cls.logger.debug(message)
 
 
 if __name__ == "__main__":
