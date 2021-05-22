@@ -1,5 +1,6 @@
 import os
 import sys
+import hmac
 import time
 import pytz
 import datetime
@@ -23,25 +24,36 @@ app = FastAPI(
 )
 
 APP_NAME = "CoopKeeper"
-WEBHOOK_SECRET = "My precious"
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/door/{door_action}")
+async def door(
+        door_action: str,
+        request: Request,
+        response: Response,
+    ):
+    if door_action == 'open':
+        CoopKeeper.open_door()
+    elif door_action == 'close':
+        CoopKeeper.close_door()
+    else:
+        response.status_code = 400
+        CoopLogger.log_info("invalid action requested")
+        return {"result": "invalid action requested"}
+    return {"result": "ok"}
 
 
 class Coop:
-    MAX_MANUAL_MODE_TIME = 60 * 60
+    MAX_MANUAL_MODE_TIME = 60
     MAX_MOTOR_ON = 45
     TIMEZONE_CITY = 'Seattle'
     AFTER_SUNSET_DELAY = 0
     AFTER_SUNRISE_DELAY = -15
-    SECOND_CHANCE_DELAY = 60 * 10
-    IDLE = UNKNOWN = NOT_TRIGGERED = AUTO = 0
+    IDLE = UNKNOWN = AUTO = 0
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
 
+    """
     PIN_LED = 5
     PIN_BUTTON_UP = 4
     PIN_BUTTON_DOWN = 22
@@ -50,7 +62,7 @@ class Coop:
     PIN_MOTOR_ENABLE = 25
     PIN_MOTOR_A = 24
     PIN_MOTOR_B = 23
-    """
+    
     def setupPins(self):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(Coop.PIN_MOTOR_ENABLE, GPIO.OUT)
@@ -71,17 +83,20 @@ class CoopKeeper:
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
         coop_time = CoopTime()
+        triggers = Triggers()
 
         uvicorn.run("server:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
 
+    @classmethod
+    def open_door(cls):
+        print("open door")
 
-    def open_door(self):
-        pass
+    @classmethod
+    def close_door(cls):
+        print("close door")
 
-    def close_door(self):
-        pass
-
-    def stop_door(self):
+    @classmethod
+    def stop_door(cls):
         pass
 
     def blink(self):
@@ -90,11 +105,20 @@ class CoopKeeper:
     def button_press(self):
         pass
 
-    def check_triggers(self):
-        pass
-
     def set_mode(self):
         pass
+
+
+class Triggers:
+
+    def __init__(self):
+        t = Thread(target = self.monitor_triggers)
+        t.setDaemon(True)
+        t.start()
+
+    def monitor_triggers(self):
+        while True:
+            time.sleep(1)
 
 
 class CoopTime:
@@ -116,8 +140,8 @@ class CoopTime:
             sun = self.city.sun(date=datetime.datetime.now(), local=True)
             self.open_time = sun["sunrise"] + datetime.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
             self.close_time = sun["sunset"] + datetime.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
-            CoopLogger.log_info('Updating time for location: {}'.format(CoopTime.city))
-            time.sleep(3600)
+            CoopLogger.log_info('Checking time for location: {}'.format(CoopTime.city))
+            time.sleep(7200)
 
 
 class CoopLogger:
