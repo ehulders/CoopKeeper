@@ -7,7 +7,7 @@ import datetime
 import logging
 import glob
 import uvicorn
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import _thread as thread
 
 
@@ -53,7 +53,6 @@ class Coop:
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
 
-    """
     PIN_LED = 5
     PIN_BUTTON_UP = 4
     PIN_BUTTON_DOWN = 22
@@ -73,7 +72,7 @@ class Coop:
         GPIO.setup(Coop.PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(Coop.PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(Coop.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    """
+
 
 class CoopKeeper:
     def __init__(self):
