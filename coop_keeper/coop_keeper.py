@@ -1,46 +1,14 @@
-import os
-import sys
-import hmac
-import time
 import pytz
-import datetime
+import datetime as dt
 import logging
-import glob
-import uvicorn
+
 #import RPi.GPIO as GPIO
-import _thread as thread
 
-
-from threading import Thread
+from threading import Thread, Event
 from astral import Astral
-from fastapi import FastAPI, Header, Request, Response
-from pydantic import BaseModel
 
-
-app = FastAPI(
-    title="CoopKeeper API",
-    description="RestAPI for CoopKeeper",
-    version="0.1a",
-)
 
 APP_NAME = "CoopKeeper"
-
-
-@app.get("/door/{door_action}")
-async def door(
-        door_action: str,
-        request: Request,
-        response: Response,
-    ):
-    if door_action == 'open':
-        CoopKeeper.open_door()
-    elif door_action == 'close':
-        CoopKeeper.close_door()
-    else:
-        response.status_code = 400
-        CoopLogger.log_info("invalid action requested")
-        return {"result": "invalid action requested"}
-    return {"result": "ok"}
 
 
 class Coop:
@@ -48,7 +16,7 @@ class Coop:
     MAX_MOTOR_ON = 45
     TIMEZONE_CITY = 'Seattle'
     AFTER_SUNSET_DELAY = 0
-    AFTER_SUNRISE_DELAY = -15
+    AFTER_SUNRISE_DELAY = 0
     IDLE = UNKNOWN = AUTO = 0
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
@@ -83,22 +51,16 @@ class CoopKeeper:
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
+        self.coop_time = CoopTime()
+        #self.triggers = Triggers()
 
-        coop_time = CoopTime()
-        triggers = Triggers()
-
-        uvicorn.run("server:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
-
-    @classmethod
-    def open_door(cls):
+    def open_door(self):
         print("open door")
 
-    @classmethod
-    def close_door(cls):
+    def close_door(self):
         print("close door")
 
-    @classmethod
-    def stop_door(cls):
+    def stop_door(self):
         pass
 
     def blink(self):
@@ -107,7 +69,7 @@ class CoopKeeper:
     def set_mode(self):
         pass
 
-
+"""
 class Buttons:
 
     def __init__(self):
@@ -116,46 +78,39 @@ class Buttons:
 
     def button_press(self):
         pass
+"""
 
-
-class Triggers:
+class Triggers(Thread):
+    status = None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
 
     def __init__(self):
-        self.status = (GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+        Thread.__init__(self)
+        self.setDaemon(True)
+        self.start()
 
-        t = Thread(target = self.monitor_triggers)
-        t.setDaemon(True)
-        t.start()
-
-    def __str__(self):
-        return self.status
-
-    def monitor_triggers(self):
-        while True:
-            time.sleep(1)
+    def run(self):
+        while not Event().wait(1):
+            print('checking triggers')
 
 
-class CoopTime:
-
+class CoopTime(Thread):
     a = Astral()
     city = a[Coop.TIMEZONE_CITY]
+    current_time = dt.datetime.now()
+    open_time = None
+    close_time = None
 
     def __init__(self):
-        self.current_time = None
-        self.open_time = None
-        self.close_time = None
-        t = Thread(target = self.check_time)
-        t.setDaemon(True)
-        t.start()
+        Thread.__init__(self)
+        self.setDaemon(True)
+        self.start()
 
-    def check_time(self):
-        while True:
-            self.current_time = datetime.datetime.now(pytz.timezone(self.city.timezone))
-            sun = self.city.sun(date=datetime.datetime.now(), local=True)
-            self.open_time = sun["sunrise"] + datetime.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
-            self.close_time = sun["sunset"] + datetime.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
-            CoopLogger.log_info('Checking time for location: {}'.format(CoopTime.city))
-            time.sleep(7200)
+    def run(self):
+        while not Event().wait(5):
+            sun = self.city.sun(date=dt.datetime.now(), local=True)
+            self.open_time = sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
+            self.close_time = sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
+            self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
 
 
 class CoopLogger:
@@ -185,7 +140,3 @@ class CoopLogger:
     @classmethod
     def log_debug(cls, message):
         cls.logger.debug(message)
-
-
-if __name__ == "__main__":
-    CoopKeeper()
