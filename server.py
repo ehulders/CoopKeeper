@@ -7,7 +7,7 @@ import datetime
 import logging
 import glob
 import uvicorn
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 import _thread as thread
 
 
@@ -53,6 +53,8 @@ class Coop:
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
 
+
+class GPIOInit:
     PIN_LED = 5
     PIN_BUTTON_UP = 4
     PIN_BUTTON_DOWN = 22
@@ -61,18 +63,18 @@ class Coop:
     PIN_MOTOR_ENABLE = 25
     PIN_MOTOR_A = 24
     PIN_MOTOR_B = 23
-    
-    def setupPins(self):
+"""
+    def __init__(self):
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(Coop.PIN_MOTOR_ENABLE, GPIO.OUT)
-        GPIO.setup(Coop.PIN_MOTOR_A, GPIO.OUT)
-        GPIO.setup(Coop.PIN_MOTOR_B, GPIO.OUT)
-        GPIO.setup(Coop.PIN_LED, GPIO.OUT)
-        GPIO.setup(Coop.PIN_SENSOR_BOTTOM, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(Coop.PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(Coop.PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.setup(Coop.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-
+        GPIO.setup(GPIOInit.PIN_MOTOR_ENABLE, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_MOTOR_A, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_MOTOR_B, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_LED, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_SENSOR_BOTTOM, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+"""
 
 class CoopKeeper:
     def __init__(self):
@@ -81,6 +83,7 @@ class CoopKeeper:
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
+
         coop_time = CoopTime()
         triggers = Triggers()
 
@@ -101,19 +104,31 @@ class CoopKeeper:
     def blink(self):
         pass
 
-    def button_press(self):
+    def set_mode(self):
         pass
 
-    def set_mode(self):
+
+class Buttons:
+
+    def __init__(self):
+        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.button_press, bouncetime=200)
+        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.button_press, bouncetime=200)
+
+    def button_press(self):
         pass
 
 
 class Triggers:
 
     def __init__(self):
+        self.status = (GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+
         t = Thread(target = self.monitor_triggers)
         t.setDaemon(True)
         t.start()
+
+    def __str__(self):
+        return self.status
 
     def monitor_triggers(self):
         while True:
