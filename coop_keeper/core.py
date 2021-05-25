@@ -1,6 +1,7 @@
 import pytz
 import datetime as dt
 import logging
+import asyncio
 
 #import RPi.GPIO as GPIO
 
@@ -44,15 +45,18 @@ class GPIOInit:
         GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 """
 
-class CoopKeeper:
+class CoopKeeper(Thread):
     def __init__(self):
+        Thread.__init__(self)
         self.door_status = Coop.UNKNOWN
         self.started_motor = None
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
-        self.coop_time = CoopTime()
+        self.coop_time = CoopClock()
         #self.triggers = Triggers()
+        self.setDaemon(True)
+        self.start()
 
     def open_door(self):
         print("open door")
@@ -69,6 +73,14 @@ class CoopKeeper:
     def set_mode(self):
         pass
 
+    def run(self):
+        """
+        Enforce door mode
+        :return:
+        """
+        while True:
+            print(self.coop_time.current_time)
+            Event().wait(1)
 """
 class Buttons:
 
@@ -89,14 +101,16 @@ class Triggers(Thread):
         self.start()
 
     def run(self):
-        while not Event().wait(1):
+        while True:
             print('checking triggers')
+            Event().wait(1)
 
 
-class CoopTime(Thread):
+class CoopClock(Thread):
     a = Astral()
     city = a[Coop.TIMEZONE_CITY]
-    current_time = dt.datetime.now()
+    sun = city.sun(date=dt.datetime.now(), local=True)
+    current_time = None
     open_time = None
     close_time = None
 
@@ -106,11 +120,11 @@ class CoopTime(Thread):
         self.start()
 
     def run(self):
-        while not Event().wait(5):
-            sun = self.city.sun(date=dt.datetime.now(), local=True)
-            self.open_time = sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
-            self.close_time = sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
+        while True:
+            self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
+            self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
             self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
+            Event().wait(1)
 
 
 class CoopLogger:

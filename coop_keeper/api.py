@@ -1,7 +1,7 @@
 
 import uvicorn
 
-from .coop_keeper import CoopKeeper
+from .core import CoopKeeper
 from fastapi import FastAPI, Header, Request, Response
 from pydantic import BaseModel
 
