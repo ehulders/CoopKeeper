@@ -45,7 +45,7 @@ class GPIOInit:
         GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 """
 
-class CoopKeeper(Thread):
+class CoopKeeper:
     def __init__(self):
         Thread.__init__(self)
         self.door_status = Coop.UNKNOWN
@@ -54,9 +54,8 @@ class CoopKeeper(Thread):
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
         self.coop_time = CoopClock()
-        #self.triggers = Triggers()
-        self.setDaemon(True)
-        self.start()
+        self.triggers = Triggers()
+        self.enforce_mode()
 
     def open_door(self):
         print("open door")
@@ -73,7 +72,7 @@ class CoopKeeper(Thread):
     def set_mode(self):
         pass
 
-    def run(self):
+    def enforce_mode(self):
         """
         Enforce door mode
         :return:
@@ -102,7 +101,7 @@ class Triggers(Thread):
 
     def run(self):
         while True:
-            print('checking triggers')
+            CoopLogger.log_info('Updating trigger status')
             Event().wait(1)
 
 
@@ -124,6 +123,7 @@ class CoopClock(Thread):
             self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
             self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
             self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
+            CoopLogger.log_info('Updating CoopClock current_time={}'.format(self.current_time))
             Event().wait(1)
 
 
