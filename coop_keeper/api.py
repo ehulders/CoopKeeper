@@ -1,7 +1,7 @@
 
 import uvicorn
 
-from .core import CoopKeeper
+from .core import Coop, CoopKeeper
 from fastapi import FastAPI, Header, Request, Response
 from pydantic import BaseModel
 
@@ -15,16 +15,20 @@ app = FastAPI(
 )
 
 
-@app.get("/door/{door_action}")
+@app.get("api/v1/door/{door_action}")
 async def door(
         door_action: str,
         request: Request,
         response: Response,
     ):
     if door_action == 'open':
+        ck.set_mode(Coop.MANUAL)
         ck.open_door()
     elif door_action == 'close':
+        ck.set_mode(Coop.MANUAL)
         ck.close_door()
+    elif door_action == 'auto':
+        ck.set_mode(Coop.AUTO)
     else:
         response.status_code = 400
         return {"result": "invalid action requested"}

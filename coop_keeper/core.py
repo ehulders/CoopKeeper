@@ -58,8 +58,9 @@ class GPIOInit:
         GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 """
 
-class CoopKeeper:
+class CoopKeeper(Thread):
     def __init__(self):
+        self.t = Thread.__init__(self)
         self.door_status = Coop.UNKNOWN
         self.started_motor = None
         self.direction = Coop.IDLE
@@ -68,7 +69,9 @@ class CoopKeeper:
         self.coop_time = CoopClock()
         self.triggers = Triggers()
         self.buttons = Buttons(self)
-        self.enforce_mode()
+        self.blink = Blink(self)
+        #self.setDaemon(True)
+        #self.start()
 
     def open_door(self):
         print("open door")
@@ -79,15 +82,31 @@ class CoopKeeper:
     def stop_door(self):
         pass
 
-    def blink(self):
-        print('blink')
+    def set_mode(self, mode):
+        if mode == Coop.AUTO:
+            self.door_mode = Coop.AUTO
+            logger.info("Entering auto mode")
+        else:
+            self.door_mode = Coop.MANUAL
+            logger.info("Entering manual mode")
 
-    def set_mode(self):
-        pass
-
-    def enforce_mode(self):
+    def run(self):
         while True:
             print(self.coop_time.current_time)
+            Event().wait(1)
+
+
+class Blink(Thread):
+    def __init__(self, ck):
+        Thread.__init__(self)
+        self.ck = ck
+        self.setDaemon(True)
+        self.start()
+
+    def run(self):
+        while True:
+            if self.coop_keeper.door_mode == Coop.MANUAL:
+                print('blink...')
             Event().wait(1)
 
 
@@ -97,30 +116,31 @@ class Buttons(Thread):
     """
     #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.button_press, bouncetime=200)
     #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.button_press, bouncetime=200)
-
-    def __init__(self, coop_keeper):
+    def __init__(self, ck):
         Thread.__init__(self)
-        self.coop_keeper = coop_keeper
+        self.ck = ck
         self.setDaemon(True)
         self.start()
 
     def run(self):
         while True:
-            logger.info(self.coop_keeper.blink())
             Event().wait(1)
 
 
 class Triggers(Thread):
-    status = None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+    bottom, top = None, None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
 
     def __init__(self):
         Thread.__init__(self)
         self.setDaemon(True)
         self.start()
 
+    def get_status(self):
+        return #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+
     def run(self):
         while True:
-            logger.info('Updating trigger status')
+            # bottom, top = None, None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
             Event().wait(1)
 
 
@@ -142,5 +162,5 @@ class CoopClock(Thread):
             self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
             self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
             self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
-            logger.info('Updating CoopClock current_time={}'.format(self.current_time))
+            #logger.info('Updating CoopClock current_time={}'.format(self.current_time))
             Event().wait(1)
