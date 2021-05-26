@@ -12,6 +12,19 @@ from astral import Astral
 APP_NAME = "CoopKeeper"
 
 
+logger = logging.getLogger(APP_NAME)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('/tmp/{}.log'.format(APP_NAME))
+fh.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+logger.addHandler(fh)
+logger.addHandler(ch)
+
+
 class Coop:
     MAX_MANUAL_MODE_TIME = 60
     MAX_MOTOR_ON = 45
@@ -47,7 +60,6 @@ class GPIOInit:
 
 class CoopKeeper:
     def __init__(self):
-        Thread.__init__(self)
         self.door_status = Coop.UNKNOWN
         self.started_motor = None
         self.direction = Coop.IDLE
@@ -55,6 +67,7 @@ class CoopKeeper:
         self.manual_mode_start = 0
         self.coop_time = CoopClock()
         self.triggers = Triggers()
+        self.buttons = Buttons(self)
         self.enforce_mode()
 
     def open_door(self):
@@ -67,29 +80,35 @@ class CoopKeeper:
         pass
 
     def blink(self):
-        pass
+        print('blink')
 
     def set_mode(self):
         pass
 
     def enforce_mode(self):
-        """
-        Enforce door mode
-        :return:
-        """
         while True:
             print(self.coop_time.current_time)
             Event().wait(1)
-"""
-class Buttons:
 
-    def __init__(self):
-        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.button_press, bouncetime=200)
-        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.button_press, bouncetime=200)
 
-    def button_press(self):
-        pass
-"""
+class Buttons(Thread):
+    """
+    listener for button press to change mode
+    """
+    #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.button_press, bouncetime=200)
+    #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.button_press, bouncetime=200)
+
+    def __init__(self, coop_keeper):
+        Thread.__init__(self)
+        self.coop_keeper = coop_keeper
+        self.setDaemon(True)
+        self.start()
+
+    def run(self):
+        while True:
+            logger.info(self.coop_keeper.blink())
+            Event().wait(1)
+
 
 class Triggers(Thread):
     status = None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
@@ -101,7 +120,7 @@ class Triggers(Thread):
 
     def run(self):
         while True:
-            CoopLogger.log_info('Updating trigger status')
+            logger.info('Updating trigger status')
             Event().wait(1)
 
 
@@ -123,34 +142,5 @@ class CoopClock(Thread):
             self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
             self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
             self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
-            CoopLogger.log_info('Updating CoopClock current_time={}'.format(self.current_time))
+            logger.info('Updating CoopClock current_time={}'.format(self.current_time))
             Event().wait(1)
-
-
-class CoopLogger:
-    logger = logging.getLogger(APP_NAME)
-    logger.setLevel(logging.DEBUG)
-
-    fh = logging.FileHandler('/tmp/{}.log'.format(APP_NAME))
-    fh.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-
-    @classmethod
-    def log_info(cls, message):
-        cls.logger.info(message)
-
-    @classmethod
-    def log_error(cls, message):
-        cls.logger.error(message)
-
-    @classmethod
-    def log_debug(cls, message):
-        cls.logger.debug(message)
