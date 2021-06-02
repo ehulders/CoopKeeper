@@ -15,7 +15,7 @@ app = FastAPI(
 )
 
 
-@app.get("api/v1/door/{door_action}")
+@app.get("/api/v1/door/{door_action}")
 async def door(
         door_action: str,
         request: Request,
@@ -23,16 +23,16 @@ async def door(
     ):
     if door_action == 'open':
         ck.set_mode(Coop.MANUAL)
-        ck.open_door()
+        result = ck.open_door()
     elif door_action == 'close':
         ck.set_mode(Coop.MANUAL)
-        ck.close_door()
+        result = ck.close_door()
     elif door_action == 'auto':
-        ck.set_mode(Coop.AUTO)
+        result = ck.set_mode(Coop.AUTO)
     else:
         response.status_code = 400
         return {"result": "invalid action requested"}
-    return {"result": "ok"}
+    return {"result": result}
 
 
 def main():

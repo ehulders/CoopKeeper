@@ -1,9 +1,11 @@
+from typing import MutableSequence
 import pytz
+import time
 import datetime as dt
 import logging
 import asyncio
 
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 
 from threading import Thread, Event
 from astral import Astral
@@ -45,7 +47,7 @@ class GPIOInit:
     PIN_MOTOR_ENABLE = 25
     PIN_MOTOR_A = 24
     PIN_MOTOR_B = 23
-"""
+
     def __init__(self):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(GPIOInit.PIN_MOTOR_ENABLE, GPIO.OUT)
@@ -56,7 +58,7 @@ class GPIOInit:
         GPIO.setup(GPIOInit.PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(GPIOInit.PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-"""
+
 
 class CoopKeeper(Thread):
     def __init__(self):
@@ -66,29 +68,76 @@ class CoopKeeper(Thread):
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
+        GPIOInit()
         self.coop_time = CoopClock()
         self.triggers = Triggers()
         self.buttons = Buttons(self)
-        self.blink = Blink(self)
+        #self.blink = Blink(self)
         #self.setDaemon(True)
         #self.start()
 
-    def open_door(self):
-        print("open door")
-
     def close_door(self):
-        print("close door")
+        top, bottom = self.triggers.get_status()
+        if bottom == Coop.TRIGGERED:
+            msg = "Door is already closed"
+            logger.info(msg)
+            return msg
+        msg = "Closing door"
+        logger.info(msg)
+        self.started_motor = dt.datetime.now()
+        GPIO.output(GPIOInit.PIN_MOTOR_ENABLE, GPIO.HIGH)
+        GPIO.output(GPIOInit.PIN_MOTOR_A, GPIO.LOW)
+        GPIO.output(GPIOInit.PIN_MOTOR_B, GPIO.HIGH)
+        self.direction = Coop.DOWN
+        return msg
 
-    def stop_door(self):
-        pass
+    def open_door(self):
+        top, bottom = self.triggers.get_status()
+        if top == Coop.TRIGGERED:
+            msg = "Door is already open"
+            logger.info(msg)
+            return msg
+        msg = "Opening door"
+        logger.info(msg)
+        self.started_motor = dt.datetime.now()
+        GPIO.output(GPIOInit.PIN_MOTOR_ENABLE, GPIO.HIGH)
+        GPIO.output(GPIOInit.PIN_MOTOR_A, GPIO.HIGH)
+        GPIO.output(GPIOInit.PIN_MOTOR_B, GPIO.LOW)
+        self.direction= Coop.UP
+        return msg
+
+    def stop_door(self, delay=0):
+        if self.direction != Coop.IDLE:
+            logger.info("Stop door")
+            time.sleep(delay)
+            GPIO.output(GPIOInit.PIN_MOTOR_ENABLE, GPIO.LOW)
+            GPIO.output(GPIOInit.PIN_MOTOR_A, GPIO.LOW)
+            GPIO.output(GPIOInit.PIN_MOTOR_B, GPIO.LOW)
+            self.direction = Coop.IDLE
+            self.started_motor = None
+
+        top, bottom = self.triggers.get_status()
+        if top == Coop.TRIGGERED:
+            logger.info("Door is open")
+            self.door_status = Coop.OPEN
+        elif bottom == Coop.TRIGGERED:
+            logger.info("Door is closed")
+            self.door_status = Coop.CLOSED
+        else:
+            logger.info("Door is in an unknown state")
+            self.door_status = Coop.UNKNOWN
+            payload = {'status': self.door_status, 'ts': dt.datetime.now() }
 
     def set_mode(self, mode):
         if mode == Coop.AUTO:
             self.door_mode = Coop.AUTO
-            logger.info("Entering auto mode")
+            msg = "Entering auto mode"
+            logger.info(msg)
         else:
             self.door_mode = Coop.MANUAL
-            logger.info("Entering manual mode")
+            msg = "Entering manul mode"
+            logger.info(msg)
+        return msg
 
     def run(self):
         while True:
@@ -105,26 +154,36 @@ class Blink(Thread):
 
     def run(self):
         while True:
-            if self.coop_keeper.door_mode == Coop.MANUAL:
+            if self.ck.door_mode == Coop.MANUAL:
                 print('blink...')
             Event().wait(1)
 
 
-class Buttons(Thread):
-    """
-    listener for button press to change mode
-    """
-    #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.button_press, bouncetime=200)
-    #GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.button_press, bouncetime=200)
-    def __init__(self, ck):
-        Thread.__init__(self)
-        self.ck = ck
-        self.setDaemon(True)
-        self.start()
+class Buttons:
+    def __init__(self, kp):
+        self.kp = kp
+        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.press, bouncetime=200)
+        GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.press, bouncetime=200)
 
-    def run(self):
-        while True:
-            Event().wait(1)
+    def press(self, button):
+        start = int(round(time.time() * 1000))
+        while GPIO.input(button) == 0:
+            pass
+        end = int(round(time.time() * 1000))
+        if end - start > 4000:
+            if self.door_mode == Coop.AUTO:
+                self.kp.set_mode(Coop.MANUAL)
+            else:
+                self.kp.set_mode(Coop.AUTO)
+
+        if self.kp.door_mode == Coop.MANUAL:
+            if end - start < 4000:
+                if self.kp.direction != Coop.IDLE:
+                    self.kp.stop_door(0)
+                elif button == Coop.PIN_BUTTON_UP:
+                    self.kp_open_door()
+                else:
+                    self.kp.close_door()       
 
 
 class Triggers(Thread):
@@ -136,7 +195,7 @@ class Triggers(Thread):
         self.start()
 
     def get_status(self):
-        return #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+        return GPIO.input(GPIOInit.PIN_SENSOR_BOTTOM), GPIO.input(GPIOInit.PIN_SENSOR_TOP)
 
     def run(self):
         while True:
