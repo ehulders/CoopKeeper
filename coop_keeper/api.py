@@ -1,7 +1,7 @@
-
 import uvicorn
+import RPi.GPIO as GPIO
 
-from .core import Coop, CoopKeeper
+from .core import Coop, CoopKeeper, GPIOInit
 from fastapi import FastAPI, Header, Request, Response
 from pydantic import BaseModel
 
@@ -37,3 +37,5 @@ async def door(
 
 def main():
     uvicorn.run("start:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
+    GPIO.output(GPIOInit.PIN_LED, GPIO.LOW)
+    ck.stop_door()

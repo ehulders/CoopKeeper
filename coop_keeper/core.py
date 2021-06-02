@@ -71,6 +71,8 @@ class CoopKeeper:
         self.coop_time = CoopClock()
         self.triggers = Triggers(self)
         self.buttons = Buttons(self)
+        self.set_mode(Coop.AUTO)
+        self.stop_door(0)
 
     def close_door(self):
         top, bottom = self.triggers.get_status()
