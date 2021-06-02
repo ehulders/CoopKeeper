@@ -9,7 +9,6 @@ build/
 dist/
 *.egg-info/
 *.csv
-*.txt
 
 # IDE project files
 .vscode/
