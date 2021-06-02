@@ -29,10 +29,10 @@ logger.addHandler(ch)
 
 class Coop:
     MAX_MANUAL_MODE_TIME = 60
-    MAX_MOTOR_ON = 45
+    MAX_MOTOR_ON = 10
     TIMEZONE_CITY = 'Seattle'
-    AFTER_SUNSET_DELAY = 0
-    AFTER_SUNRISE_DELAY = 0
+    AFTER_SUNSET_DELAY = 15
+    AFTER_SUNRISE_DELAY = -15
     IDLE = UNKNOWN = AUTO = 0
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
@@ -62,13 +62,12 @@ class GPIOInit:
 
 class CoopKeeper:
     def __init__(self):
-        self.t = Thread.__init__(self)
+        GPIOInit()
         self.door_status = Coop.UNKNOWN
         self.started_motor = None
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
-        GPIOInit()
         self.coop_time = CoopClock()
         self.triggers = Triggers(self)
         self.buttons = Buttons(self)
@@ -123,14 +122,24 @@ class CoopKeeper:
         else:
             logger.info("Door is in an unknown state")
             self.door_status = Coop.UNKNOWN
-            payload = {'status': self.door_status, 'ts': dt.datetime.now() }
+            payload = {'status': self.door_status, 'ts': dt.datetime.now()}
+
+    def emergency_stop(self, reason):
+        logger.info("Emergency Stop door: " + reason)
+        GPIO.output(GPIOInit.PIN_MOTOR_ENABLE, GPIO.LOW)
+        GPIO.output(GPIOInit.PIN_MOTOR_A, GPIO.LOW)
+        GPIO.output(GPIOInit.PIN_MOTOR_B, GPIO.LOW)
+        self.direction = Coop.IDLE
+        self.started_motor = None
+        self.set_mode(Coop.HALT)
+        self.stop_door(0)
 
     def set_mode(self, new_mode):
         if new_mode == Coop.AUTO:
             msg = "Entering auto mode"
             logger.info(msg)
             self.door_mode = Coop.AUTO
-            GPIO.output(Coop.PIN_LED, GPIO.HIGH)
+            GPIO.output(GPIOInit.PIN_LED, GPIO.HIGH)
         else:
             msg = "Entering manual mode"
             logger.info(msg)
@@ -155,13 +164,13 @@ class Blink(Thread):
             Event().wait(1)
             if self.ck.door_mode == Coop.MANUAL: 
                 if int(time.time()) - self.ck.manual_mode_start > Coop.MAX_MANUAL_MODE_TIME:
-                    logger.info("In manual mode too long, switching")
-                    self.changeDoorMode(Coop.AUTO)
+                    logger.info("In manual mode too long, switching to auto")
+                    self.ck.emergency_stop(Coop.AUTO)
 
 
 class Buttons:
-    def __init__(self, kp):
-        self.kp = kp
+    def __init__(self, ck):
+        self.ck = ck
         GPIO.add_event_detect(GPIOInit.PIN_BUTTON_UP, GPIO.FALLING, callback=self.press, bouncetime=200)
         GPIO.add_event_detect(GPIOInit.PIN_BUTTON_DOWN, GPIO.FALLING, callback=self.press, bouncetime=200)
 
@@ -171,19 +180,18 @@ class Buttons:
             pass
         end = int(round(time.time() * 1000))
         if end - start > 4000:
-            if self.door_mode == Coop.AUTO:
-                self.kp.set_mode(Coop.MANUAL)
+            if self.ck.door_mode == Coop.AUTO:
+                self.ck.set_mode(Coop.MANUAL)
             else:
-                self.kp.set_mode(Coop.AUTO)
-
-        if self.kp.door_mode == Coop.MANUAL:
+                self.ck.set_mode(Coop.AUTO)
+        if self.ck.door_mode == Coop.MANUAL:
             if end - start < 4000:
-                if self.kp.direction != Coop.IDLE:
-                    self.kp.stop_door(0)
-                elif button == Coop.PIN_BUTTON_UP:
-                    self.kp_open_door()
+                if self.ck.direction != Coop.IDLE:
+                    self.ck.stop_door(0)
+                elif button == GPIOInit.PIN_BUTTON_UP:
+                    self.ck.open_door()
                 else:
-                    self.kp.close_door()       
+                    self.ck.close_door()
 
 
 class Triggers(Thread):
@@ -203,15 +211,15 @@ class Triggers(Thread):
 
             if self.ck.direction == Coop.UP and top == Coop.TRIGGERED:
                 logger.info("Top sensor triggered")
-                self.stopDoor(1.5)
+                self.ck.stop_door(1.5)
 
             if self.ck.direction == Coop.DOWN and bottom == Coop.TRIGGERED:
                 logger.info("Bottom sensor triggered")
-                self.stopDoor(4)
+                self.ck.stop_door(4)
 
             if self.ck.started_motor is not None:
-                if (dt.datetime.now() - self.started_motor).seconds > Coop.MAX_MOTOR_ON:
-                    self.emergencyStopDoor('Motor ran too long')
+                if (dt.datetime.now() - self.ck.started_motor).seconds > Coop.MAX_MOTOR_ON:
+                    self.ck.emergency_stop('Motor ran too long')
 
             Event().wait(1)
 
