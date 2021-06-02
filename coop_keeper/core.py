@@ -62,7 +62,7 @@ class GPIOInit:
 
 class CoopKeeper:
     def __init__(self):
-        GPIOInit()
+        self.gpio_init = GPIOInit()
         self.door_status = Coop.UNKNOWN
         self.started_motor = None
         self.direction = Coop.IDLE
