@@ -60,7 +60,7 @@ class GPIOInit:
         GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 
-class CoopKeeper(Thread):
+class CoopKeeper:
     def __init__(self):
         self.t = Thread.__init__(self)
         self.door_status = Coop.UNKNOWN
@@ -70,11 +70,8 @@ class CoopKeeper(Thread):
         self.manual_mode_start = 0
         GPIOInit()
         self.coop_time = CoopClock()
-        self.triggers = Triggers()
+        self.triggers = Triggers(self)
         self.buttons = Buttons(self)
-        #self.blink = Blink(self)
-        #self.setDaemon(True)
-        #self.start()
 
     def close_door(self):
         top, bottom = self.triggers.get_status()
@@ -128,21 +125,19 @@ class CoopKeeper(Thread):
             self.door_status = Coop.UNKNOWN
             payload = {'status': self.door_status, 'ts': dt.datetime.now() }
 
-    def set_mode(self, mode):
-        if mode == Coop.AUTO:
-            self.door_mode = Coop.AUTO
+    def set_mode(self, new_mode):
+        if new_mode == Coop.AUTO:
             msg = "Entering auto mode"
             logger.info(msg)
+            self.door_mode = Coop.AUTO
+            GPIO.output(Coop.PIN_LED, GPIO.HIGH)
         else:
-            self.door_mode = Coop.MANUAL
-            msg = "Entering manul mode"
+            msg = "Entering manual mode"
             logger.info(msg)
+            self.door_mode = new_mode
+            self.manual_mode_start = int(time.time())
+            Blink(self)
         return msg
-
-    def run(self):
-        while True:
-            print(self.coop_time.current_time)
-            Event().wait(1)
 
 
 class Blink(Thread):
@@ -153,10 +148,15 @@ class Blink(Thread):
         self.start()
 
     def run(self):
-        while True:
-            if self.ck.door_mode == Coop.MANUAL:
-                print('blink...')
+        while(self.ck.door_mode != Coop.AUTO):
+            GPIO.output(GPIOInit.PIN_LED, GPIO.LOW)
             Event().wait(1)
+            GPIO.output(GPIOInit.PIN_LED, GPIO.HIGH)
+            Event().wait(1)
+            if self.ck.door_mode == Coop.MANUAL: 
+                if int(time.time()) - self.ck.manual_mode_start > Coop.MAX_MANUAL_MODE_TIME:
+                    logger.info("In manual mode too long, switching")
+                    self.changeDoorMode(Coop.AUTO)
 
 
 class Buttons:
@@ -187,10 +187,10 @@ class Buttons:
 
 
 class Triggers(Thread):
-    bottom, top = None, None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
 
-    def __init__(self):
+    def __init__(self, ck):
         Thread.__init__(self)
+        self.ck = ck
         self.setDaemon(True)
         self.start()
 
@@ -199,7 +199,20 @@ class Triggers(Thread):
 
     def run(self):
         while True:
-            # bottom, top = None, None #(GPIO.input(Coop.PIN_SENSOR_BOTTOM), GPIO.input(Coop.PIN_SENSOR_TOP))
+            top, bottom = self.get_status()
+
+            if self.ck.direction == Coop.UP and top == Coop.TRIGGERED:
+                logger.info("Top sensor triggered")
+                self.stopDoor(1.5)
+
+            if self.ck.direction == Coop.DOWN and bottom == Coop.TRIGGERED:
+                logger.info("Bottom sensor triggered")
+                self.stopDoor(4)
+
+            if self.ck.started_motor is not None:
+                if (dt.datetime.now() - self.started_motor).seconds > Coop.MAX_MOTOR_ON:
+                    self.emergencyStopDoor('Motor ran too long')
+
             Event().wait(1)
 
 
