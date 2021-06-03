@@ -205,7 +205,7 @@ class Triggers(Thread):
         self.start()
 
     def get_status(self):
-        return GPIO.input(GPIOInit.PIN_SENSOR_BOTTOM), GPIO.input(GPIOInit.PIN_SENSOR_TOP)
+        return GPIO.input(GPIO.input(GPIOInit.PIN_SENSOR_TOP, GPIOInit.PIN_SENSOR_BOTTOM))
 
     def run(self):
         while True:
