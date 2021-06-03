@@ -29,7 +29,7 @@ logger.addHandler(ch)
 
 class Coop:
     MAX_MANUAL_MODE_TIME = 60
-    MAX_MOTOR_ON = 10
+    MAX_MOTOR_ON = 30
     TIMEZONE_CITY = 'Seattle'
     AFTER_SUNSET_DELAY = 15
     AFTER_SUNRISE_DELAY = -15
