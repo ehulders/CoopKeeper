@@ -242,17 +242,18 @@ class CoopClock(Thread):
 
     def run(self):
         while True:
-            open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
-            close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
-            current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
+            if self.ck.door_mode == Coop.AUTO:
+                open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
+                close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
+                current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
 
-            if (current_time < open_time or current_time > close_time) \
-                    and self.ck.door_status != Coop.CLOSED and self.ck.direction != Coop.DOWN:
-                logger.info("Door should be closed based on time of day")
-                self.ck.close_door()
+                if (current_time < open_time or current_time > close_time) \
+                        and self.ck.door_status != Coop.CLOSED and self.ck.direction != Coop.DOWN:
+                    logger.info("Door should be closed based on time of day")
+                    self.ck.close_door()
 
-            elif current_time > open_time and current_time < close_time \
-                    and self.ck.door_status != Coop.OPEN and self.ck.direction != Coop.UP:
-                logger.info("Door should be open based on time of day")
-                self.ck.open_door()
+                elif current_time > open_time and current_time < close_time \
+                        and self.ck.door_status != Coop.OPEN and self.ck.direction != Coop.UP:
+                    logger.info("Door should be open based on time of day")
+                    self.ck.open_door()
             Event().wait(1)
