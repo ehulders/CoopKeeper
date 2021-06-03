@@ -68,7 +68,7 @@ class CoopKeeper:
         self.direction = Coop.IDLE
         self.door_mode = Coop.AUTO
         self.manual_mode_start = 0
-        self.coop_time = CoopClock()
+        self.coop_time = CoopClock(self)
         self.triggers = Triggers(self)
         self.buttons = Buttons(self)
         self.set_mode(Coop.AUTO)
