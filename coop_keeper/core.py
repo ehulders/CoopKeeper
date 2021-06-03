@@ -28,7 +28,7 @@ logger.addHandler(ch)
 
 
 class Coop:
-    MAX_MANUAL_MODE_TIME = 60
+    MAX_MANUAL_MODE_TIME = 60 * 10
     MAX_MOTOR_ON = 30
     TIMEZONE_CITY = 'Seattle'
     AFTER_SUNSET_DELAY = 15
@@ -127,7 +127,7 @@ class CoopKeeper:
             payload = {'status': self.door_status, 'ts': dt.datetime.now()}
 
     def emergency_stop(self, reason):
-        logger.info("Emergency Stop door: " + reason)
+        logger.info("Emergency Stop door: {}".format(reason))
         GPIO.output(GPIOInit.PIN_MOTOR_ENABLE, GPIO.LOW)
         GPIO.output(GPIOInit.PIN_MOTOR_A, GPIO.LOW)
         GPIO.output(GPIOInit.PIN_MOTOR_B, GPIO.LOW)
