@@ -6,13 +6,20 @@ from fastapi import FastAPI, Header, Request, Response
 from pydantic import BaseModel
 
 
-ck = CoopKeeper()
+class App(FastAPI):
+    app = FastAPI(
+        title="CoopKeeper API",
+        description="RestAPI for CoopKeeper",
+        version="0.1a",
+    )
+    ck = CoopKeeper()
 
-app = FastAPI(
-    title="CoopKeeper API",
-    description="RestAPI for CoopKeeper",
-    version="0.1a",
-)
+
+app = App()
+
+
+def get_app():
+    return app
 
 
 @app.get("/api/v1/door/{door_action}")
@@ -22,13 +29,13 @@ async def door(
         response: Response,
     ):
     if door_action == 'open':
-        ck.set_mode(Coop.MANUAL)
-        result = ck.open_door()
+        app.ck.set_mode(Coop.MANUAL)
+        result = app.ck.open_door()
     elif door_action == 'close':
-        ck.set_mode(Coop.MANUAL)
-        result = ck.close_door()
+        app.ck.set_mode(Coop.MANUAL)
+        result = app.ck.close_door()
     elif door_action == 'auto':
-        result = ck.set_mode(Coop.AUTO)
+        result = app.ck.set_mode(Coop.AUTO)
     else:
         response.status_code = 400
         return {"result": "invalid action requested"}
@@ -36,6 +43,7 @@ async def door(
 
 
 def main():
-    uvicorn.run("start:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
+    #uvicorn.run("start:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
+    get_app()
     GPIO.output(GPIOInit.PIN_LED, GPIO.LOW)
-    ck.stop_door()
+    app.ck.stop_door()
