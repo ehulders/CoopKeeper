@@ -48,15 +48,16 @@ class GPIOInit:
     PIN_MOTOR_A = 24
     PIN_MOTOR_B = 23
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN_MOTOR_ENABLE, GPIO.OUT)
-    GPIO.setup(PIN_MOTOR_A, GPIO.OUT)
-    GPIO.setup(PIN_MOTOR_B, GPIO.OUT)
-    GPIO.setup(PIN_LED, GPIO.OUT)
-    GPIO.setup(PIN_SENSOR_BOTTOM, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    def __init__(self):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(GPIOInit.PIN_MOTOR_ENABLE, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_MOTOR_A, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_MOTOR_B, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_LED, GPIO.OUT)
+        GPIO.setup(GPIOInit.PIN_SENSOR_BOTTOM, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_SENSOR_TOP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_BUTTON_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.setup(GPIOInit.PIN_BUTTON_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 
 class CoopKeeper:
