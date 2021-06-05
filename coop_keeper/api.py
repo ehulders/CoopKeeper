@@ -42,6 +42,25 @@ async def door(
     return {"result": result}
 
 
+@app.get("/api/v1/debug/{thing}")
+async def debug(
+        thing: str,
+        request: Request,
+        response: Response,
+    ):
+    if thing == 'time':
+        result = {'current_time':
+                  app.ck.coop_time.current_time,
+                  'open_time':
+                  app.ck.coop_time.open_time,
+                  'close_time':
+                  app.ck.coop_time.close_time}
+    else:
+        response.status_code = 400
+        return {"result": "invalid thing requested"}
+    return {"result": result}
+
+
 def main():
     #uvicorn.run("start:app", host="0.0.0.0", port=5005, reload=True, log_level='info')
     get_app()

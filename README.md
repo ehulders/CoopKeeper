@@ -1,3 +1,7 @@
+# TODO 
+1) HTTPS, security
+2) ngrok 
+
 # CoopKeeper
 
 ## Testing
