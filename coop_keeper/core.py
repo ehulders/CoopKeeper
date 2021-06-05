@@ -229,13 +229,13 @@ class Triggers(Thread):
 class CoopClock(Thread):
     a = Astral()
     city = a[Coop.TIMEZONE_CITY]
-    sun = city.sun(date=dt.datetime.now(), local=True)
-    current_time = None
-    open_time = None
-    close_time = None
 
     def __init__(self, ck):
         Thread.__init__(self)
+        self.sun = self.city.sun(date=dt.datetime.now(), local=True)
+        self.current_time = None
+        self.open_time = None
+        self.close_time = None
         self.ck = ck
         self.setDaemon(True)
         self.start()
@@ -243,16 +243,16 @@ class CoopClock(Thread):
     def run(self):
         while True:
             if self.ck.door_mode == Coop.AUTO:
-                open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
-                close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
-                current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
+                self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
+                self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
+                self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
 
-                if (current_time < open_time or current_time > close_time) \
+                if (self.current_time < self.open_time or self.current_time > self.close_time) \
                         and self.ck.door_status != Coop.CLOSED and self.ck.direction != Coop.DOWN:
                     logger.info("Door should be closed based on time of day")
                     self.ck.close_door()
 
-                elif current_time > open_time and current_time < close_time \
+                elif self.current_time > self.open_time and self.current_time < self.close_time \
                         and self.ck.door_status != Coop.OPEN and self.ck.direction != Coop.UP:
                     logger.info("Door should be open based on time of day")
                     self.ck.open_door()
