@@ -232,7 +232,6 @@ class CoopClock(Thread):
 
     def __init__(self, ck):
         Thread.__init__(self)
-        self.sun = self.city.sun(date=dt.datetime.now(), local=True)
         self.current_time = None
         self.open_time = None
         self.close_time = None
@@ -243,8 +242,9 @@ class CoopClock(Thread):
     def run(self):
         while True:
             if self.ck.door_mode == Coop.AUTO:
-                self.open_time = self.sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
-                self.close_time = self.sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
+                sun = self.city.sun(date=dt.datetime.now(), local=True)
+                self.open_time = sun["sunrise"] + dt.timedelta(minutes=Coop.AFTER_SUNRISE_DELAY)
+                self.close_time = sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
                 self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
 
                 if (self.current_time < self.open_time or self.current_time > self.close_time) \
