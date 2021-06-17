@@ -167,7 +167,7 @@ class Blink(Thread):
             if self.ck.door_mode == Coop.MANUAL: 
                 if int(time.time()) - self.ck.manual_mode_start > Coop.MAX_MANUAL_MODE_TIME:
                     logger.info("In manual mode too long, switching to auto")
-                    self.ck.emergency_stop(Coop.AUTO)
+                    self.ck.set_mode(Coop.AUTO)
 
 
 class Buttons:
@@ -247,13 +247,22 @@ class CoopClock(Thread):
                 self.close_time = sun["sunset"] + dt.timedelta(minutes=Coop.AFTER_SUNSET_DELAY)
                 self.current_time = dt.datetime.now(pytz.timezone(self.city.timezone))
 
-                if (self.current_time < self.open_time or self.current_time > self.close_time) \
-                        and self.ck.door_status != Coop.CLOSED and self.ck.direction != Coop.DOWN:
-                    logger.info("Door should be closed based on time of day")
-                    self.ck.close_door()
+                if self.current_time < self.open_time or self.current_time > self.close_time:
+                    logger.info("Door should be closed based on time of day: {}".format(self.current_time))
+                    if self.ck.door_status == Coop.CLOSED:
+                        logger.info("Door is already closed")
+                    elif self.ck.direction == Coop.DOWN:
+                        logger.info("Door is in the process of closing")
+                    else:
+                        self.ck.close_door()
 
-                elif self.current_time > self.open_time and self.current_time < self.close_time \
-                        and self.ck.door_status != Coop.OPEN and self.ck.direction != Coop.UP:
-                    logger.info("Door should be open based on time of day")
-                    self.ck.open_door()
+                elif self.current_time > self.open_time and self.current_time < self.close_time:
+                    logger.info("Door should be open based on time of day: {}".format(self.current_time))
+                    if self.ck.door_status == Coop.OPEN:
+                        logger.info("Door is already open")
+                    elif self.ck.direction == Coop.UP:
+                        logger.info("Door is in the process of opening")
+                    else:
+                        self.ck.open_door()
+
             Event().wait(1)
