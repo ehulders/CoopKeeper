@@ -29,10 +29,10 @@ logger.addHandler(ch)
 
 class Coop:
     MAX_MANUAL_MODE_TIME = 60 * 10
-    MAX_MOTOR_ON = 30
+    MAX_MOTOR_ON = 22
     TIMEZONE_CITY = 'Seattle'
-    AFTER_SUNSET_DELAY = 15
-    AFTER_SUNRISE_DELAY = -15
+    AFTER_SUNSET_DELAY = 5
+    AFTER_SUNRISE_DELAY = -5
     IDLE = UNKNOWN = AUTO = 0
     UP = OPEN = TRIGGERED = MANUAL = 1
     DOWN = CLOSED = HALT = 2
@@ -213,7 +213,7 @@ class Triggers(Thread):
 
             if self.ck.direction == Coop.UP and top == Coop.TRIGGERED:
                 logger.info("Top sensor triggered")
-                self.ck.stop_door(1.5)
+                self.ck.stop_door(0)
 
             if self.ck.direction == Coop.DOWN and bottom == Coop.TRIGGERED:
                 logger.info("Bottom sensor triggered")
